@@ -24,7 +24,7 @@ import pysam
 
 from basenji_data import ModelSeq
 from basenji.dna_io import dna_1hot, dna_1hot_index
-from transformers import AutoTokenizer, AutoModel
+from transformers import AutoTokenizer, AutoModel, BertConfig
 import torch
 
 import tensorflow as tf
@@ -139,8 +139,11 @@ def main():
 
   # open FASTA
   fasta_open = pysam.Fastafile(fasta_file)
-  tokenizer = AutoTokenizer.from_pretrained("zhihan1996/DNABERT-2-117M", trust_remote_code=True)
-  model = AutoModel.from_pretrained("zhihan1996/DNABERT-2-117M", trust_remote_code=True)
+  config = BertConfig.from_pretrained("zhanglab/dnaber_6")
+
+  # Load tokenizer and model with matching configuration
+  tokenizer = AutoTokenizer.from_pretrained("zhanglab/dnaber_6")
+  model = BertModel.from_pretrained("zhanglab/dnaber_6", config=config)
   dna = "ACGTAGCATCGGATCTATCTATCGACACTTGGTTATCGATCTACGAGCATCTCGTTAGC"
   inputs = tokenizer(dna, return_tensors = 'pt')["input_ids"]
   hidden_states = model(inputs)[0] # [1, sequence_length, 768]
