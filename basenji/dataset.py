@@ -36,6 +36,7 @@ class SeqDataset:
                seq_length_crop=None, mode='eval', tfr_pattern=None):
     """Initialize basic parameters; run compute_stats; run make_dataset."""
 
+    print("HI")
     self.data_dir = data_dir
     self.split_label = split_label
     self.batch_size = batch_size
@@ -110,7 +111,6 @@ class SeqDataset:
 
   def make_dataset(self, cycle_length=4):
     """Make Dataset w/ transformations."""
-
     # initialize dataset from TFRecords glob
     tfr_files = natsorted(glob.glob(self.tfr_path))
     if tfr_files:

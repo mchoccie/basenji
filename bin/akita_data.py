@@ -381,7 +381,7 @@ def main():
     if options.restart and os.path.isfile(seqs_cov_file):
       print('Skipping existing %s' % seqs_cov_file, file=sys.stderr)
     else:
-      cmd = 'akita_data_read.py'
+      cmd = '/home/017448899/basenji/bin/akita_data_read.py'
       cmd += ' --crop %d' % options.crop_bp
       cmd += ' -d %s' % options.diagonal_offset
       cmd += ' -k %d' % options.kernel_stddev
@@ -424,6 +424,7 @@ def main():
   # write TF Records
   ################################################################
   # copy targets file
+  # This part is important if we can try to replace the one hot encoding process with BERT
   shutil.copy(targets_file, '%s/targets.txt' % options.out_dir)
 
   # initialize TF Records dir
@@ -445,7 +446,7 @@ def main():
     while tfr_start <= fold_set_end:
       tfr_stem = '%s/%s-%d' % (tfr_dir, fold_set, tfr_i)
 
-      cmd = 'basenji_data_write.py'
+      cmd = '/home/017448899/basenji/bin/basenji_data_write.py'
       cmd += ' -s %d' % tfr_start
       cmd += ' -e %d' % tfr_end
 

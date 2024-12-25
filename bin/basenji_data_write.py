@@ -24,6 +24,8 @@ import pysam
 
 from basenji_data import ModelSeq
 from basenji.dna_io import dna_1hot, dna_1hot_index
+from transformers import AutoTokenizer, AutoModel
+import torch
 
 import tensorflow as tf
 
@@ -137,7 +139,20 @@ def main():
 
   # open FASTA
   fasta_open = pysam.Fastafile(fasta_file)
+  tokenizer = AutoTokenizer.from_pretrained("zhihan1996/DNABERT-2-117M", trust_remote_code=True)
+  model = AutoModel.from_pretrained("zhihan1996/DNABERT-2-117M", trust_remote_code=True)
+  dna = "ACGTAGCATCGGATCTATCTATCGACACTTGGTTATCGATCTACGAGCATCTCGTTAGC"
+  inputs = tokenizer(dna, return_tensors = 'pt')["input_ids"]
+  hidden_states = model(inputs)[0] # [1, sequence_length, 768]
 
+  # embedding with mean pooling
+  embedding_mean = torch.mean(hidden_states[0], dim=0)
+  print("This is the embedding shape: " + str(embedding_mean.shape)) # expect to be 768
+
+  # embedding with max pooling
+  embedding_max = torch.max(hidden_states[0], dim=0)[0]
+  print(embedding_max.shape) # expect to be 768
+  print("Opening the FastaFile")
   # define options
   tf_opts = tf.io.TFRecordOptions(compression_type='ZLIB')
 
