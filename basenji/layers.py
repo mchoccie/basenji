@@ -1095,9 +1095,14 @@ class UpperTri(tf.keras.layers.Layer):
       output_dim = output_dim.value
 
     triu_tup = np.triu_indices(seq_len, self.diagonal_offset)
-    triu_index = list(triu_tup[0]+ seq_len*triu_tup[1])
+    ###### OLD LINE RIGHT HERE #########
+    print("This is triu_tup {}".format(triu_tup))
+    #triu_index = list(triu_tup[0]+ seq_len*triu_tup[1])
+    triu_index = np.array(triu_tup[0] + seq_len * triu_tup[1], dtype=np.int32)
     unroll_repr = tf.reshape(inputs, [-1, seq_len**2, output_dim])
-    return tf.gather(unroll_repr, triu_index, axis=1)
+    return tf.gather(unroll_repr, tf.convert_to_tensor(triu_index, dtype=tf.int32), axis=1)
+    #### OLD LINE #######
+    #return tf.gather(unroll_repr, triu_index, axis=1)
 
   def get_config(self):
     config = super().get_config().copy()

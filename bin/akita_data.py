@@ -434,6 +434,7 @@ def main():
 
   write_jobs = []
 
+  print("These are the fold labels {}".format(str(fold_labels)))
   for fold_set in fold_labels:
     fold_set_indexes = [i for i in range(len(mseqs)) if mseqs[i].label == fold_set]
     fold_set_start = fold_set_indexes[0]
@@ -442,24 +443,21 @@ def main():
     tfr_i = 0
     tfr_start = fold_set_start
     tfr_end = min(tfr_start+options.seqs_per_tfr, fold_set_end)
-
+    print("This is the start" + str(tfr_start))
+    print("THis is the end {}".format(str(tfr_end)))
     while tfr_start <= fold_set_end:
       tfr_stem = '%s/%s-%d' % (tfr_dir, fold_set, tfr_i)
+      monitor_gpu_cmd = (
+    "nvidia-smi --query-gpu=timestamp,index,utilization.gpu,utilization.memory,memory.total,memory.used,memory.free "
+    "--format=csv -l 5 > gpu_usage.log &"
+      )
 
-      cmd = '/home/017448899/basenji/bin/basenji_data_write.py'
-      cmd += ' -s %d' % tfr_start
-      cmd += ' -e %d' % tfr_end
-
-      # do not use      
-      # if options.umap_bed is not None:
-      #   cmd += ' -u %s' % unmap_npy
-      # if options.umap_set is not None:
-      #   cmd += ' --umap_set %f' % options.umap_set
-
-      cmd += ' %s' % fasta_file
-      cmd += ' %s' % seqs_bed_file
-      cmd += ' %s' % seqs_cov_dir
-      cmd += ' %s.tfr' % tfr_stem
+  # Create the main command with the GPU monitoring and Python script
+      cmd = f"sbatch --partition=lgpuq --nodes=1 --ntasks=1 --cpus-per-task=4 --mem=96G --time=23:00:00<<EOF\n"
+      cmd += f"#!/bin/bash\n"
+      cmd += f"python /home/017448899/basenji/bin/basenji_data_write.py "
+      cmd += f"-s {tfr_start} -e {tfr_end} "
+      cmd += f"{fasta_file} {seqs_bed_file} {seqs_cov_dir} {tfr_stem}.tfr\nEOF"
 
       if options.run_local:
         # breaks on some OS

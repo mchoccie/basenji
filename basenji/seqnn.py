@@ -108,9 +108,33 @@ class SeqNN():
     ###################################################
     # inputs
     ###################################################
-    sequence = tf.keras.Input(shape=(self.seq_length, 4), name='sequence')
-    current = sequence
+    sequence = tf.keras.Input(shape=(263, 768), name='sequence')
 
+    print("✅ Model input shape before first layer:", sequence.shape)
+
+    sequence_proj = tf.keras.layers.Dense(
+        64, activation='relu', name="embedding_projection"
+    )(sequence)
+
+    print("✅ Shape after embedding_projection:", sequence_proj.shape)
+
+    current = tf.keras.layers.Bidirectional(
+        tf.keras.layers.LSTM(128, return_sequences=True, name="bi_lstm1"),
+        name="bidirectional_lstm1"
+    )(sequence_proj)
+
+    print("✅ Shape after first BiLSTM:", current.shape)
+
+    current = tf.keras.layers.Bidirectional(
+        tf.keras.layers.LSTM(128, return_sequences=True, name="bi_lstm2"),
+        name="bidirectional_lstm2"
+    )(current)
+
+    print("✅ Shape after second BiLSTM:", current.shape)
+
+    current = tf.keras.layers.UpSampling1D(size=6, name="upsample_1d")(current)
+
+    print("✅ Shape after upsampling:", current.shape)
     # augmentation
     if self.augment_rc:
       current, reverse_bool = layers.StochasticReverseComplement()(current)
@@ -187,10 +211,13 @@ class SeqNN():
       self.model_strides.append(1)
       for layer in self.model.layers:
         if hasattr(layer, 'strides') or hasattr(layer, 'size'):
+          print(layer.name, layer.input_shape, layer.output_shape)
           stride_factor = layer.input_shape[1] / layer.output_shape[1]
+          print(stride_factor)
           self.model_strides[-1] *= stride_factor
+          print(self.model_strides[-1])
+      self.model_strides[-1] = max(1, round(self.model_strides[-1]))
       self.model_strides[-1] = int(self.model_strides[-1])
-
       # determine predictions length before cropping
       if type(sequence.shape[1]) == tf.compat.v1.Dimension:
         target_full_length = sequence.shape[1].value // self.model_strides[-1]
@@ -199,8 +226,12 @@ class SeqNN():
 
       # determine predictions length after cropping
       self.target_lengths.append(model.outputs[0].shape[1])
+      print('self.target_lengths[-1]', self.target_lengths[-1])
+      print("target full length is", target_full_length)
       if type(self.target_lengths[-1]) == tf.compat.v1.Dimension:
         self.target_lengths[-1] = self.target_lengths[-1].value
+        
+
       self.target_crops.append((target_full_length - self.target_lengths[-1])//2)
     
     if self.verbose:

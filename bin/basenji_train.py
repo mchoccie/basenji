@@ -72,6 +72,7 @@ def main():
     parser.error('Must provide parameters and data directory.')
   else:
     params_file = args[0]
+    print(params_file)
     data_dirs = args[1:]
 
   if options.keras_fit and len(data_dirs) > 1:
@@ -108,6 +109,14 @@ def main():
     mode='train',
     tfr_pattern=options.tfr_train_pattern))
 
+
+    for batch in train_data[0].dataset.take(1):  # Take one batch
+      x, y = batch  # Unpack features and labels
+      print(f"x shape: {x.shape}")  # Shape of input sequences
+      print(f"y shape: {y.shape}")  # Shape of labels
+
+    
+
     # load eval data
     eval_data.append(dataset.SeqDataset(data_dir,
     split_label='valid',
@@ -121,6 +130,7 @@ def main():
     mixed_precision.set_global_policy('mixed_float16')
 
   if params_train.get('num_gpu', 1) == 1:
+    print("We're here helloooooo")
     ########################################
     # one GPU
 
@@ -134,6 +144,10 @@ def main():
     # initialize trainer
     seqnn_trainer = trainer.Trainer(params_train, train_data, 
                                     eval_data, options.out_dir)
+    
+
+    
+    print("Hello")
 
     # compile model
     seqnn_trainer.compile(seqnn_model)
@@ -141,6 +155,7 @@ def main():
   else:
     ########################################
     # two GPU
+    print("we've got two GPUs")
 
     strategy = tf.distribute.MirroredStrategy()
 
@@ -168,8 +183,10 @@ def main():
 
   # train model
   if options.keras_fit:
+    print("We're in the IF portion")
     seqnn_trainer.fit_keras(seqnn_model)
   else:
+    print("WE're in the else")
     if len(data_dirs) == 1:
       seqnn_trainer.fit_tape(seqnn_model)
     else:

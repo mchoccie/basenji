@@ -72,6 +72,14 @@ class Trainer:
     self.out_dir = out_dir
     self.strategy = strategy
     self.num_gpu = num_gpu
+    gpus = tf.config.list_physical_devices('GPU')
+    print(f"GPUs Available: {len(gpus)}")
+    for gpu in gpus:
+        print(f"GPU: {gpu}")
+
+    # If running on CPU only, print a warning
+    if not gpus:
+        print("WARNING: No GPUs detected, training will run on CPU!")
     self.batch_size = self.train_data[0].batch_size
     self.compiled = False
 

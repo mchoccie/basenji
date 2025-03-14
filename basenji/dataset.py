@@ -46,7 +46,7 @@ class SeqDataset:
     self.tfr_pattern = tfr_pattern
 
     # read data parameters
-    data_stats_file = '%s/statistics.json' % self.data_dir
+    data_stats_file = '/home/017448899/basenji/manuscripts/akita/data/1m/statistics.json' ##'%s/statistics.json' % self.data_dir
     with open(data_stats_file) as data_stats_open:
       data_stats = json.load(data_stats_open)
     self.seq_length = data_stats['seq_length']
@@ -56,6 +56,13 @@ class SeqDataset:
     self.target_length = data_stats['target_length']
     self.num_targets = data_stats['num_targets']
     self.pool_width = data_stats['pool_width']
+
+    print("\nDataset Parameters:")
+    print(f"seq_depth: {self.seq_depth}")
+    print(f"seq_1hot: {self.seq_1hot}")
+    print(f"target_length: {self.target_length}")
+    print(f"num_targets: {self.num_targets}")
+    print(f"pool_width: {self.pool_width}\n")
     
     if self.tfr_pattern is None:
       self.tfr_path = '%s/tfrecords/%s-*.tfr' % (self.data_dir, self.split_label)
@@ -63,8 +70,17 @@ class SeqDataset:
     else:
       self.tfr_path = '%s/tfrecords/%s' % (self.data_dir, self.tfr_pattern)
       self.compute_stats()
-
+    print("HELLO")
     self.make_dataset()
+
+    # Add these debug prints
+    print("Loading dataset from:", data_dir)
+    
+    # Print shapes after loading first batch
+    for batch in self.dataset.take(1):
+        features, labels = batch
+        print(f"Features shape: {features.shape}")
+        print(f"Labels shape: {labels.shape}")
 
   def batches_per_epoch(self):
     return self.num_seqs // self.batch_size
@@ -72,42 +88,144 @@ class SeqDataset:
   def distribute(self, strategy):
     self.dataset = strategy.experimental_distribute_dataset(self.dataset)
 
+  #ORIGFINAL CODE
+  # def generate_parser(self, raw=False):
+  #   def parse_proto(example_protos):
+  #     """Parse TFRecord protobuf."""
+
+  #     # define features
+  #     features = {
+  #       TFR_INPUT: tf.io.FixedLenFeature([], tf.string),
+  #       TFR_OUTPUT: tf.io.FixedLenFeature([], tf.string)
+  #     }
+
+  #     # parse example into features
+  #     parsed_features = tf.io.parse_single_example(example_protos, features=features)
+
+  #     # decode sequence
+  #     sequence = tf.io.decode_raw(parsed_features[TFR_INPUT], tf.uint8)
+  #     print(sequence.shape)
+  #     if not raw:
+  #       if self.seq_1hot:
+  #         sequence = tf.reshape(sequence, [self.seq_length])
+  #         sequence = tf.one_hot(sequence, 1+self.seq_depth, dtype=tf.uint8)
+  #         sequence = sequence[:,:-1] # drop N
+  #       else:
+  #         sequence = tf.reshape(sequence, [self.seq_length, self.seq_depth])
+  #       if self.seq_length_crop is not None:
+  #         crop_len = (self.seq_length - self.seq_length_crop) // 2
+  #         sequence = sequence[crop_len:-crop_len,:]
+  #       sequence = tf.cast(sequence, tf.float32)
+        
+  #     # decode targets
+  #     targets = tf.io.decode_raw(parsed_features[TFR_OUTPUT], tf.float16)
+  #     if not raw:
+  #       targets = tf.reshape(targets, [self.target_length, self.num_targets])
+  #       targets = tf.cast(targets, tf.float32)
+
+  #     return sequence, targets
+
+  #   return parse_proto
+
+
+
   def generate_parser(self, raw=False):
     def parse_proto(example_protos):
-      """Parse TFRecord protobuf."""
+        """Parse ZLIB-compressed TFRecord protobuf."""
 
-      # define features
-      features = {
-        TFR_INPUT: tf.io.FixedLenFeature([], tf.string),
-        TFR_OUTPUT: tf.io.FixedLenFeature([], tf.string)
-      }
+        # Define features
+        features = {
+            'sequence': tf.io.FixedLenFeature([], tf.string),
+            'target': tf.io.FixedLenFeature([], tf.string),
+        }
 
-      # parse example into features
-      parsed_features = tf.io.parse_single_example(example_protos, features=features)
+        # Parse example
+        parsed_features = tf.io.parse_single_example(example_protos, features=features)
 
-      # decode sequence
-      sequence = tf.io.decode_raw(parsed_features[TFR_INPUT], tf.uint8)
-      if not raw:
-        if self.seq_1hot:
-          sequence = tf.reshape(sequence, [self.seq_length])
-          sequence = tf.one_hot(sequence, 1+self.seq_depth, dtype=tf.uint8)
-          sequence = sequence[:,:-1] # drop N
-        else:
-          sequence = tf.reshape(sequence, [self.seq_length, self.seq_depth])
-        if self.seq_length_crop is not None:
-          crop_len = (self.seq_length - self.seq_length_crop) // 2
-          sequence = sequence[crop_len:-crop_len,:]
-        sequence = tf.cast(sequence, tf.float32)
+        # Decode sequence (decompress first!)
+        sequence = tf.io.decode_raw(parsed_features['sequence'], tf.float32)
         
-      # decode targets
-      targets = tf.io.decode_raw(parsed_features[TFR_OUTPUT], tf.float16)
-      if not raw:
-        targets = tf.reshape(targets, [self.target_length, self.num_targets])
-        targets = tf.cast(targets, tf.float32)
 
-      return sequence, targets
+        if not raw:
+            # Fix: The stored sequence shape is (62, 768), we must reshape
+            print(f"🔹 Original sequence shape: {sequence.shape}")  # Debugging
+            sequence = tf.reshape(sequence, [263, 768])  # Ensure correct shape
+
+            print(f"✅ Fixed sequence shape: {sequence.shape}")  # Debugging
+
+        # Decode targets (decompress first!)
+        targets = tf.io.decode_raw(parsed_features['target'], tf.float16)
+        if not raw:
+            targets = tf.reshape(targets, [self.target_length, self.num_targets])
+            targets = tf.cast(targets, tf.float32)
+
+        return sequence, targets
 
     return parse_proto
+
+  # def generate_parser(self, raw=False):
+  #   def parse_proto(example_protos):
+  #     """Parse TFRecord protobuf."""
+
+  #     # define features
+  #     features = {
+  #       TFR_INPUT: tf.io.FixedLenFeature([], tf.string),
+  #       TFR_OUTPUT: tf.io.FixedLenFeature([], tf.string)
+  #     }
+
+  #     # parse example into features
+  #     parsed_features = tf.io.parse_single_example(example_protos, features=features)
+
+  #     # ✅ Decode sequence embeddings (stored as raw bytes)
+  #     sequence = tf.io.decode_raw(parsed_features[TFR_INPUT], tf.float32)
+
+  #     # ✅ Decode targets (stored as raw bytes)
+  #     targets = tf.io.decode_raw(parsed_features[TFR_OUTPUT], tf.float16)
+
+  #     # 🔹 Debugging: Print raw sequence shape before reshaping
+  #     print("DEBUG: Raw sequence tensor:", sequence)
+  #     print(f"DEBUG: Raw sequence shape before reshape: {sequence.shape}")
+
+  #     # ✅ Correctly reshape sequence embeddings to `(61440, 768)`
+  #     expected_seq_length = 1
+  #     embedding_size = 768
+  #     sequence = tf.reshape(sequence, [expected_seq_length, embedding_size])
+
+  #     # 🔹 Debugging: Print reshaped sequence shape
+  #     print(f"DEBUG: Reshaped sequence shape: {sequence.shape}")
+
+  #     # ✅ Correctly reshape targets `(512, num_targets)`
+  #     targets = tf.reshape(targets, [self.target_length, self.num_targets])
+
+  #     print(targets.shape)
+
+
+  #     '''
+  #     This was the old code leave it like this
+  #     '''
+  #     # decode sequence
+  #     # sequence = tf.io.decode_raw(parsed_features[TFR_INPUT], tf.uint8)
+  #     # if not raw:
+  #     #   if self.seq_1hot:
+  #     #     sequence = tf.reshape(sequence, [self.seq_length])
+  #     #     sequence = tf.one_hot(sequence, 1+self.seq_depth, dtype=tf.uint8)
+  #     #     sequence = sequence[:,:-1] # drop N
+  #     #   else:
+  #     #     sequence = tf.reshape(sequence, [self.seq_length, self.seq_depth])
+  #     #   if self.seq_length_crop is not None:
+  #     #     crop_len = (self.seq_length - self.seq_length_crop) // 2
+  #     #     sequence = sequence[crop_len:-crop_len,:]
+  #     #   sequence = tf.cast(sequence, tf.float32)
+        
+  #     # # decode targets
+  #     # targets = tf.io.decode_raw(parsed_features[TFR_OUTPUT], tf.float16)
+  #     # if not raw:
+  #     #   targets = tf.reshape(targets, [self.target_length, self.num_targets])
+  #     #   targets = tf.cast(targets, tf.float32)
+
+  #     return sequence, targets
+
+  #   return parse_proto
 
   def make_dataset(self, cycle_length=4):
     """Make Dataset w/ transformations."""
